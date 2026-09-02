@@ -18,6 +18,10 @@ That's what Bluesky Gif Unfucker does for you so you don't have to!
 
 ## Usage
 
+### Web
+
+[insert Github pages link here]
+
 ### Download for macOS
 
 You can download the latest bundled macOS app from the [releases page](https://github.com/Zacqary/bsky-gif-unfucker/releases). I haven't packaged it for Windows or Linux yet cause I just threw this shit together one night. Yell at me if you want this. Idk I'll do it eventually.
@@ -31,3 +35,19 @@ cargo run
 ```
 
 This probably works on Windows and Linux. Idk.
+
+## Development
+
+To run the web app, first build with:
+
+```sh
+ ./web/build.sh
+```
+
+then
+
+```sh
+cargo run --manifest-path web/serve/Cargo.toml
+```
+
+to spin it up on `localhost:8080`

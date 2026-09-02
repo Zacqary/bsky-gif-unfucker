@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Bluesky Gif Unfucker</title>
+    <link rel="icon" href="icon.png" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #16161c;
+        color: #e8e8ef;
+        font:
+          16px -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          system-ui,
+          sans-serif;
+        user-select: none;
+      }
+      body.drag-over {
+        background: #20202c;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      p {
+        margin: 0;
+      }
+      header {
+        text-align: center;
+        display: flex;
+        flex-flow: row wrap;
+        justify-content: center;
+        margin-bottom: 8px;
+      }
+      header p {
+        font-size: 10px;
+        width: 75%;
+      }
+      h1 {
+        margin-bottom: 8px;
+      }
+      footer {
+        text-align: center;
+        font-size: 7px;
+        margin-top: 8px;
+      }
+      a {
+        color: white;
+      }
+      #app {
+        zoom: var(--scale, 1);
+        box-sizing: border-box;
+        width: 360px;
+        height: 460px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .panel {
+        box-sizing: border-box;
+        width: 300px;
+        height: 300px;
+        border-radius: 12px;
+      }
+      .drop-zone {
+        border: 2px dashed #4a4a5a;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      }
+      .preview {
+        position: relative;
+        overflow: hidden;
+        background: #0c0c10;
+      }
+      .preview img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .loaded {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      }
+      button {
+        border: 0;
+        padding: 0;
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+      .button {
+        padding: 4px 12px;
+        border-radius: 6px;
+        background: #2f2f3d;
+      }
+      .button:hover {
+        background: #3a3a4a;
+      }
+      .clear {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: #000000cc;
+        color: #fff;
+        font-size: 12px;
+      }
+      .clear:hover {
+        background: #333333cc;
+      }
+      .duration {
+        position: absolute;
+        bottom: 8px;
+        right: 8px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: #000;
+        color: #fff;
+        font-size: 12px;
+      }
+      .text-sm {
+        font-size: 14px;
+      }
+      .error {
+        max-width: 260px;
+        font-size: 14px;
+        text-align: center;
+        color: #f28b82;
+      }
+      .spinner {
+        font-size: 20px;
+        color: #9a9ab0;
+      }
+      .hint {
+        max-width: 300px;
+        font-size: 14px;
+        text-align: center;
+        color: #9a9ab0;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app">
+      <header>
+        <h1>Bluesky Gif Unfucker</h1>
+        <p>
+          Make sure your looping animation won't look fucked when you upload it
+          to Bluesky
+        </p>
+      </header>
+      <section id="empty" class="panel drop-zone">
+        <p id="error" class="error" hidden></p>
+        <p class="text-sm">Drag a .gif here, or</p>
+        <button id="open" class="button" type="button">Open...</button>
+      </section>
+      <section id="loading" class="panel drop-zone" hidden>
+        <span id="spinner" class="spinner"></span>
+      </section>
+      <section id="loaded" class="loaded" hidden>
+        <div class="panel preview">
+          <img id="preview" alt="Gif preview" />
+          <button id="clear" class="clear" type="button" aria-label="Clear">
+            ✕
+          </button>
+          <span id="duration" class="duration"></span>
+        </div>
+        <button id="save" class="button" type="button">
+          Save unfucked gif
+        </button>
+        <p id="hint" class="hint">
+          Your original gif is long enough and doesn't need unfucking.
+        </p>
+      </section>
+      <input id="file" type="file" accept=".gif,image/gif" hidden />
+      <footer>
+        @<a href="https://bsky.app/profile/xerxes.gay">xerxes.gay</a><br />
+        code is GPL i guess idk I'm not your dad
+      </footer>
+    </main>
+    <script type="module">
+      import init, { process } from "./pkg/bsky_gif_unfucker.js";
+
+      const APP_WIDTH = 360;
+      const APP_HEIGHT = 460;
+      const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+      const $ = (id) => document.getElementById(id);
+      const sections = {
+        empty: $("empty"),
+        loading: $("loading"),
+        loaded: $("loaded"),
+      };
+
+      let loading = false;
+      let previewUrl = null;
+      let downloadName = null;
+      let dragDepth = 0;
+
+      function show(state) {
+        for (const [name, section] of Object.entries(sections)) {
+          section.hidden = name !== state;
+        }
+      }
+
+      function fmtSecs(secs) {
+        return `${parseFloat(secs.toFixed(2))}s`;
+      }
+
+      function fitToViewport() {
+        const scale = Math.min(
+          innerWidth / APP_WIDTH,
+          innerHeight / APP_HEIGHT,
+        );
+        $("app").style.setProperty("--scale", scale);
+      }
+
+      function showError(message) {
+        $("error").textContent = message;
+        $("error").hidden = false;
+        show("empty");
+      }
+
+      function clear() {
+        URL.revokeObjectURL(previewUrl);
+        previewUrl = null;
+        downloadName = null;
+        $("preview").removeAttribute("src");
+        $("error").hidden = true;
+        show("empty");
+      }
+
+      async function loadGif(file) {
+        if (loading) {
+          return;
+        }
+        clear();
+        if (!/\.gif$/i.test(file.name)) {
+          showError("That's not a .gif file.");
+          return;
+        }
+
+        loading = true;
+        show("loading");
+        let frame = 0;
+        $("spinner").textContent = SPINNER_FRAMES[0];
+        const spinner = setInterval(() => {
+          frame += 1;
+          $("spinner").textContent =
+            SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
+        }, 80);
+
+        try {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          await new Promise(requestAnimationFrame);
+          const processed = process(bytes);
+          const unfuckedBytes = processed.unfuckedBytes;
+          const label = unfuckedBytes
+            ? `${fmtSecs(processed.originalSecs)} → ${fmtSecs(processed.unfuckedSecs)}`
+            : fmtSecs(processed.originalSecs);
+          processed.free();
+
+          const blob = unfuckedBytes
+            ? new Blob([unfuckedBytes], { type: "image/gif" })
+            : file;
+          previewUrl = URL.createObjectURL(blob);
+          downloadName = unfuckedBytes
+            ? `${file.name.replace(/\.gif$/i, "")}-unfucked.gif`
+            : null;
+          $("preview").src = previewUrl;
+          $("duration").textContent = label;
+          $("save").hidden = !unfuckedBytes;
+          $("hint").hidden = Boolean(unfuckedBytes);
+          show("loaded");
+        } catch (error) {
+          showError(`Couldn't read that gif: ${error.message ?? error}`);
+        } finally {
+          clearInterval(spinner);
+          loading = false;
+        }
+      }
+
+      $("open").onclick = () => $("file").click();
+      $("clear").onclick = clear;
+      $("save").onclick = () => {
+        const link = document.createElement("a");
+        link.href = previewUrl;
+        link.download = downloadName;
+        link.click();
+      };
+      $("file").onchange = (event) => {
+        const [file] = event.target.files;
+        if (file) {
+          loadGif(file);
+        }
+        event.target.value = "";
+      };
+
+      addEventListener("dragenter", (event) => {
+        event.preventDefault();
+        dragDepth += 1;
+        document.body.classList.add("drag-over");
+      });
+      addEventListener("dragover", (event) => event.preventDefault());
+      addEventListener("dragleave", () => {
+        dragDepth -= 1;
+        if (dragDepth === 0) {
+          document.body.classList.remove("drag-over");
+        }
+      });
+      addEventListener("drop", (event) => {
+        event.preventDefault();
+        dragDepth = 0;
+        document.body.classList.remove("drag-over");
+        const [file] = event.dataTransfer.files;
+        if (file) {
+          loadGif(file);
+        }
+      });
+      addEventListener("keydown", (event) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === "o") {
+          event.preventDefault();
+          $("file").click();
+        }
+      });
+      addEventListener("resize", fitToViewport);
+
+      fitToViewport();
+      await init();
+    </script>
+  </body>
+</html>

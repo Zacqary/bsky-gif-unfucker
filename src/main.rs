@@ -1,7 +1,6 @@
 mod about;
-mod gif_unfuck;
 
-use std::{path::PathBuf, time::Duration};
+use std::{io::Cursor, path::PathBuf, time::Duration};
 
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
@@ -13,7 +12,9 @@ use gpui::{
     img, prelude::FluentBuilder, px, rgb, rgba, size,
 };
 
-use gif_unfuck::Unfucked;
+use anyhow::{Result, bail};
+use bsky_gif_unfucker::gif_unfuck::{self, Unfucked};
+use image::{AnimationDecoder, codecs::gif::GifDecoder};
 
 actions!(bsky_gif_unfucker, [Open, Quit, ShowAbout]);
 
@@ -99,7 +100,7 @@ impl GifUnfucker {
                     .unfucked
                     .as_ref()
                     .map_or(bytes.as_slice(), |unfucked| unfucked.bytes.as_slice());
-                let preview = gif_unfuck::decode_preview(preview_bytes)?;
+                let preview = decode_preview(preview_bytes)?;
                 anyhow::Ok((processed, preview))
             }
         });
@@ -334,6 +335,22 @@ impl Render for GifUnfucker {
                 GifState::Loaded(loaded) => self.render_loaded(loaded, cx),
             })
     }
+}
+
+fn decode_preview(input: &[u8]) -> Result<RenderImage> {
+    let decoder = GifDecoder::new(Cursor::new(input))?;
+    let mut frames = Vec::new();
+    for frame in decoder.into_frames() {
+        let mut frame = frame?;
+        for pixel in frame.buffer_mut().chunks_exact_mut(4) {
+            pixel.swap(0, 2);
+        }
+        frames.push(frame);
+    }
+    if frames.is_empty() {
+        bail!("gif contains no frames");
+    }
+    Ok(RenderImage::new(frames))
 }
 
 fn fmt_secs(secs: f64) -> String {

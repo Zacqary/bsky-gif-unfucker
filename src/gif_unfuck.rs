@@ -2,8 +2,6 @@ use std::io::Cursor;
 
 use anyhow::{Result, bail};
 use gif::{ColorOutput, DecodeOptions, Repeat};
-use gpui::RenderImage;
-use image::{AnimationDecoder, codecs::gif::GifDecoder};
 
 /// Delays in a gif are stored in centiseconds (10ms units)
 /// The 90s were fuckin weird idk what to tell you
@@ -73,22 +71,6 @@ pub fn process(input: &[u8]) -> Result<Processed> {
             secs: f64::from(duration_cs * loops) / 100.0,
         }),
     })
-}
-
-pub fn decode_preview(input: &[u8]) -> Result<RenderImage> {
-    let decoder = GifDecoder::new(Cursor::new(input))?;
-    let mut frames = Vec::new();
-    for frame in decoder.into_frames() {
-        let mut frame = frame?;
-        for pixel in frame.buffer_mut().chunks_exact_mut(4) {
-            pixel.swap(0, 2);
-        }
-        frames.push(frame);
-    }
-    if frames.is_empty() {
-        bail!("gif contains no frames");
-    }
-    Ok(RenderImage::new(frames))
 }
 
 #[cfg(test)]
