@@ -93,12 +93,13 @@ impl GifUnfucker {
         let work = cx.background_executor().spawn({
             let path = path.clone();
             async move {
-                let processed = gif_unfuck::process(&path)?;
-                let preview_path = processed
+                let bytes = std::fs::read(&path)?;
+                let processed = gif_unfuck::process(&bytes)?;
+                let preview_bytes = processed
                     .unfucked
                     .as_ref()
-                    .map_or(path.as_path(), |unfucked| unfucked.path.as_path());
-                let preview = gif_unfuck::decode_preview(preview_path)?;
+                    .map_or(bytes.as_slice(), |unfucked| unfucked.bytes.as_slice());
+                let preview = gif_unfuck::decode_preview(preview_bytes)?;
                 anyhow::Ok((processed, preview))
             }
         });
@@ -139,10 +140,10 @@ impl GifUnfucker {
             .and_then(|stem| stem.to_str())
             .unwrap_or("gif");
         let answer = cx.prompt_for_new_path(&directory, Some(&format!("{stem}-unfucked.gif")));
-        let temp_path = unfucked.path.clone();
+        let bytes = unfucked.bytes.clone();
         cx.spawn(async move |this, cx| {
             if let Ok(Ok(Some(destination))) = answer.await
-                && let Err(error) = std::fs::copy(&temp_path, &destination)
+                && let Err(error) = std::fs::write(&destination, &bytes)
             {
                 this.update(cx, |this, cx| {
                     this.state = GifState::Error(format!("Couldn't save the gif: {error}"));
