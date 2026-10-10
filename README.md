@@ -20,7 +20,7 @@ That's what Bluesky Gif Unfucker does for you so you don't have to!
 
 ### Web
 
-[insert Github pages link here]
+Right from your browser at [gif-unfucker.xerxes.gay](http://gif-unfucker.xerxes.gay)
 
 ### Download for macOS
 
